@@ -1,12 +1,13 @@
 import os
 import shutil
+import sys
 from markdown_blocks import markdown_to_html_node
 from textnode import TextNode, TextType
 from leafnode import LeafNode
 from parentnode import ParentNode
 
-def clean_copy_dir():
-    public_dir = "public"
+def clean_copy_dir(directory, basepath):
+    public_dir = os.path.join(directory, basepath.lstrip("/"))
     static_dir = "static"
 
     # Remove public directory if it exists
@@ -38,7 +39,7 @@ def extract_title(markdown):
             return stripped[2:].strip()
     raise ValueError("No H1 header found in markdown")
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath=None):
     print(f"Generating page from {from_path} to {dest_path} using {template_path}")
 
     with open(from_path, "r", encoding="utf-8") as file:
@@ -53,12 +54,12 @@ def generate_page(from_path, template_path, dest_path):
     title = extract_title(markdown_content)
 
     template_content = template_content.replace("{{ Title }}", title).replace("{{ Content }}", html_string)
-
+    template_content = template_content.replace('href="/', f'href="{basepath}').replace('src="/', f'src="{basepath}')
 
     with open(dest_path, "w", encoding="utf-8") as dest:
         dest.write(template_content)
     
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath=None):
     
     for root, dirs, files in os.walk(dir_path_content):
         for file in files:
@@ -80,9 +81,16 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
             dest_path = os.path.join(relative_output_dir, output_filename)
 
             # Generate the page
-            generate_page(full_path, template_path, dest_path)
+            generate_page(full_path, template_path, dest_path, basepath)
 def main():
-    clean_copy_dir()
-    generate_pages_recursive("content/", "template.html", "./public")
+    basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
+   
+    if not basepath.startswith("/"):
+        basepath = "/" + basepath
+    if not basepath.endswith("/"):
+        basepath += "/"
+
+    clean_copy_dir("./docs", basepath)
+    generate_pages_recursive("content/", "template.html", "./docs", basepath)
 
 main()
